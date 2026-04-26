@@ -1,6 +1,5 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { openDb } from './db/sqlite.js'
 import { registerConnectionsIpc } from './ipc/connections-ipc.js'
 import { registerSchemaIpc } from './ipc/schema-ipc.js'
@@ -26,7 +25,7 @@ function createWindow() {
     return { action: 'deny' }
   })
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
@@ -34,8 +33,12 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.mymariadb')
-  app.on('browser-window-created', (_, window) => optimizer.watchShortcuts(window))
+  app.setAppUserModelId('com.mymariadb')
+  app.on('browser-window-created', (_, win) => {
+    win.webContents.on('before-input-event', (e, input) => {
+      if (input.key === 'F12') { win.webContents.toggleDevTools(); e.preventDefault() }
+    })
+  })
 
   const dbPath = join(app.getPath('userData'), 'mymariadb.db')
   openDb(dbPath)
