@@ -11,5 +11,8 @@ contextBridge.exposeInMainWorld('api', {
   schema: {
     listDatabases: (connectionId)            => ipcRenderer.invoke('schema:listDatabases', connectionId),
     listObjects:   (connectionId, database)  => ipcRenderer.invoke('schema:listObjects', connectionId, database)
+  },
+  query: {
+    execute: (params) => ipcRenderer.invoke('query:execute', params)
   }
 })

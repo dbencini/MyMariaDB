@@ -3,6 +3,7 @@ import { join } from 'path'
 import { openDb } from './db/sqlite.js'
 import { registerConnectionsIpc } from './ipc/connections-ipc.js'
 import { registerSchemaIpc } from './ipc/schema-ipc.js'
+import { registerQueryIpc } from './ipc/query-ipc.js'
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -44,6 +45,7 @@ app.whenReady().then(() => {
   openDb(dbPath)
   registerConnectionsIpc()
   registerSchemaIpc()
+  registerQueryIpc()
 
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
