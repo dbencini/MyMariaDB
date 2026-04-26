@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { openDb } from './db/sqlite.js'
 import { registerConnectionsIpc } from './ipc/connections-ipc.js'
+import { registerSchemaIpc } from './ipc/schema-ipc.js'
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -39,6 +40,7 @@ app.whenReady().then(() => {
   const dbPath = join(app.getPath('userData'), 'mymariadb.db')
   openDb(dbPath)
   registerConnectionsIpc()
+  registerSchemaIpc()
 
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
