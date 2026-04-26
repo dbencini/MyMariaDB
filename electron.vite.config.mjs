@@ -16,6 +16,17 @@ const copyMigrations = {
 
 export default defineConfig({
   main: {
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.js'),
+          'backup-worker': resolve('src/main/backup/backup-worker.js')
+        },
+        output: {
+          entryFileNames: '[name].js'
+        }
+      }
+    },
     plugins: [externalizeDepsPlugin(), copyMigrations]
   },
   preload: {
