@@ -8,8 +8,8 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "postinstall": "electron-rebuild -f -w better-sqlite3",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "npm rebuild better-sqlite3 && vitest run",
+    "test:watch": "npm rebuild better-sqlite3 && vitest"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
