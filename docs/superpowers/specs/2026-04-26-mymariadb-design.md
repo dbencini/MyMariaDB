@@ -216,6 +216,8 @@ All primary keys are UUID v4, generated with Node's built-in `crypto.randomUUID(
 
 **Column type convention:** `VARCHAR(255)` for short string fields (names, types, statuses, identifiers). `TEXT` only where content can be large (file paths, encrypted blobs). SQLite stores both identically internally — this is enforced as a code convention for clarity and consistency with the MySQL/MariaDB databases the app manages.
 
+**Date format convention:** Dates are stored in SQLite as ISO 8601 strings (e.g. `2026-04-26T14:30:00.000Z`). In the UI, dates are always displayed as `DD MMM YYYY` (e.g. `26 Apr 2026`). A shared `formatDate(isoString)` utility (added in Plan 2) handles this conversion.
+
 ### `connections`
 
 | Column | Type | Notes |
