@@ -25,3 +25,8 @@ General Architecture:
     The renderer process will be responsible for the UI
     The main process will be responsible for the database connections   
     The main process will use sqlite3 to store the database connections
+
+To create the proper .exe installer:
+    1. Enable Developer Mode in Windows Settings → System → For developers
+    2. Delete the bad cache: rmdir /s /q "C:\Users\dbenc\AppData\Local\electron-builder\Cache\winCodeSign"
+    3. Run: npm run dist
