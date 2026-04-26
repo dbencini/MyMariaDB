@@ -1,6 +1,8 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { openDb } from './db/sqlite.js'
+import { registerConnectionsIpc } from './ipc/connections-ipc.js'
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -33,6 +35,11 @@ function createWindow() {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.mymariadb')
   app.on('browser-window-created', (_, window) => optimizer.watchShortcuts(window))
+
+  const dbPath = join(app.getPath('userData'), 'mymariadb.db')
+  openDb(dbPath)
+  registerConnectionsIpc()
+
   createWindow()
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
