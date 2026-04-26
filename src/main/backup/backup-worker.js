@@ -82,10 +82,12 @@ async function runBackup() {
           w(applyAll(row['Create Table']) + ';')
           w(``)
         } else {
-          const cols = await conn.request().query(
-            `SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT
-             FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '${tableName}' ORDER BY ORDINAL_POSITION`
-          )
+          const cols = await conn.request()
+            .input('tbl', mssql.NVarChar, tableName)
+            .query(
+              `SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT
+               FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @tbl ORDER BY ORDINAL_POSITION`
+            )
           const colDefs = cols.recordset.map(c => {
             const len = c.CHARACTER_MAXIMUM_LENGTH ? `(${c.CHARACTER_MAXIMUM_LENGTH === -1 ? 'MAX' : c.CHARACTER_MAXIMUM_LENGTH})` : ''
             const nullable = c.IS_NULLABLE === 'YES' ? 'NULL' : 'NOT NULL'
@@ -205,13 +207,14 @@ async function runBackup() {
         const [[trow]] = await conn.query(`SHOW CREATE TRIGGER \`${TRIGGER_NAME}\``)
         w(`DROP TRIGGER IF EXISTS \`${TRIGGER_NAME}\`;`)
         w(`DELIMITER //`)
-        w(applyAll(trow['SQL Original Statement']) + ' //')
+        const triggerSQL = trow['SQL Original Statement'] ?? trow['Statement'] ?? ''
+        w(applyAll(triggerSQL) + ' //')
         w(`DELIMITER ;`)
         w(``)
       }
     }
 
-    if (isMySQL) { w(`SET FOREIGN_KEY_CHECKS=1;`); w(`SET UNIQUE_CHECKS=1;`) }
+    if (isMySQL && !cancelled) { w(`SET FOREIGN_KEY_CHECKS=1;`); w(`SET UNIQUE_CHECKS=1;`) }
     await new Promise((res, rej) => stream.end(err => err ? rej(err) : res()))
 
     if (cancelled) {
@@ -220,7 +223,7 @@ async function runBackup() {
       return
     }
 
-    if (format === 'zip' || format === 'both') {
+    if (!cancelled && (format === 'zip' || format === 'both')) {
       emit({ phase: 'zip', message: 'Creating zip…' })
       const zipPath = outputPath.replace(/\.sql$/, '.zip')
       await zipFile(outputPath, zipPath)
