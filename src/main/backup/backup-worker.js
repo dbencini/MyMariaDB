@@ -253,6 +253,9 @@ async function runRestore() {
     if (isMySQL) {
       await conn.query(`CREATE DATABASE IF NOT EXISTS \`${database}\``)
       await conn.query(`USE \`${database}\``)
+    } else {
+      await conn.request().query(`IF DB_ID(N'${database}') IS NULL CREATE DATABASE [${database}]`)
+      await conn.request().query(`USE [${database}]`)
     }
 
     const statements = sql
@@ -260,6 +263,7 @@ async function runRestore() {
       .map(s => s.trim())
       .filter(s => s && !s.startsWith('--') && !s.startsWith('DELIMITER'))
 
+    let errorCount = 0
     let done = 0
     for (const stmt of statements) {
       if (cancelled) break
@@ -271,6 +275,7 @@ async function runRestore() {
         }
       } catch (err) {
         emit({ level: 'error', message: `Error: ${err.message}` })
+        errorCount++
       }
       done++
       if (done % 50 === 0) {
@@ -293,9 +298,9 @@ async function runRestore() {
             targetCount = r.recordset[0].c
           }
         } catch {}
-        verification.push({ tableName, targetCount, pass: true })
+        verification.push({ tableName, targetCount, pass: targetCount > 0 })
       }
-      emit({ done: true, status: 'completed', message: 'Restore complete ✓', verification })
+      emit({ done: true, status: errorCount > 0 ? 'completed_with_errors' : 'completed', message: errorCount > 0 ? `Restore complete with ${errorCount} error(s)` : 'Restore complete ✓', verification })
     } else {
       emit({ done: true, status: 'cancelled', message: 'Restore cancelled — database may be in a partial state', level: 'warn' })
     }
