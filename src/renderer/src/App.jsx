@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar/Sidebar'
 import TabBar from './components/TabBar/TabBar'
 import QueryTab from './components/QueryTab/QueryTab'
 import StatusBar from './components/StatusBar/StatusBar'
+import BackupWizard from './components/BackupWizard/BackupWizard'
 
 export default function App() {
   const { tabs, activeTabId } = useTabStore()
@@ -59,6 +60,7 @@ export default function App() {
         }
       </main>
       <StatusBar left={statusLeft} right={statusRight} leftError={leftError} />
+      <BackupWizard />
     </div>
   )
 }

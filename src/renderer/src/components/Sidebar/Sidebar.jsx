@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
 import { useConnectionStore } from '../../stores/useConnectionStore'
+import { useBackupStore } from '../../stores/useBackupStore'
 import ConnectionTree from './ConnectionTree'
 import './Sidebar.css'
 
 export default function Sidebar() {
   const { connections, loadConnections } = useConnectionStore()
+  const { openWizard } = useBackupStore()
 
   useEffect(() => { loadConnections() }, [])
 
@@ -22,7 +24,7 @@ export default function Sidebar() {
         )}
       </div>
       <div className="sidebar-bottom">
-        <div className="sidebar-backup-link">
+        <div className="sidebar-backup-link" onClick={() => openWizard('backup')}>
           💾 Backup / Restore
         </div>
       </div>
