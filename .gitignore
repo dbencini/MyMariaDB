@@ -4,4 +4,3 @@ dist-electron/
 out/
 .superpowers/
 *.db
-node_modules
