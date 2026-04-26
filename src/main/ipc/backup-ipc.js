@@ -35,6 +35,7 @@ function spawnWorker(action, connConfig, options) {
       jobId, done: true, status: 'failed', message: err.message, level: 'error',
       phase: 'data', table: null, rowsDone: 0, rowsTotal: 0
     })
+    worker.terminate()
     setImmediate(() => _jobs.delete(jobId))
   })
 
@@ -72,6 +73,7 @@ export function registerBackupIpc() {
 
   ipcMain.handle('backup:start', async (_, options) => {
     const stored = getConnection(options.connectionId)
+    if (!stored) throw new Error(`Connection ${options.connectionId} not found`)
     const jobId = spawnWorker('backup', stored, options)
     return { jobId }
   })
@@ -83,6 +85,7 @@ export function registerBackupIpc() {
 
   ipcMain.handle('restore:start', async (_, options) => {
     const stored = getConnection(options.connectionId)
+    if (!stored) throw new Error(`Connection ${options.connectionId} not found`)
     const db = getDb()
     const dbPath = db.name
     const jobId = spawnWorker('restore', stored, { ...options, dbPath })
@@ -91,6 +94,7 @@ export function registerBackupIpc() {
 
   ipcMain.handle('restore:start-chunked', async (_, options) => {
     const stored = getConnection(options.connectionId)
+    if (!stored) throw new Error(`Connection ${options.connectionId} not found`)
     const db = getDb()
     const dbPath = db.name
     const existing = db.prepare(
