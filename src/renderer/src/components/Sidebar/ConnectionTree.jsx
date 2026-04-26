@@ -70,12 +70,11 @@ function ObjectGroup({ label, items, connectionId, database, connectionType }) {
     setMenu({ x: e.clientX, y: e.clientY, item })
   }
 
-  const handlePreview = () => {
-    const name = menu.item.name
+  const handlePreview = (item) => {
     const sql = connectionType === 'mssql'
-      ? `SELECT * FROM [${name}]`
-      : `SELECT * FROM \`${name}\``
-    addAndRunTab({ title: `📋 ${name}`, sql, connectionId, database })
+      ? `SELECT * FROM [${item.name}]`
+      : `SELECT * FROM \`${item.name}\``
+    addAndRunTab({ title: `📋 ${item.name}`, sql, connectionId, database })
     setMenu(null)
   }
 
@@ -101,6 +100,13 @@ function ObjectGroup({ label, items, connectionId, database, connectionType }) {
               onContextMenu={e => handleContextMenu(e, item)}
             >
               {item.name}
+              {isTable && (
+                <button
+                  className="preview-btn"
+                  title="Preview data"
+                  onClick={e => { e.stopPropagation(); handlePreview(item) }}
+                >🔍</button>
+              )}
             </div>
           ))}
         </div>
@@ -108,7 +114,7 @@ function ObjectGroup({ label, items, connectionId, database, connectionType }) {
       {menu && (
         <ContextMenu
           x={menu.x} y={menu.y}
-          onPreview={handlePreview}
+          onPreview={() => handlePreview(menu.item)}
           onNewQuery={handleNewQuery}
           onClose={() => setMenu(null)}
         />

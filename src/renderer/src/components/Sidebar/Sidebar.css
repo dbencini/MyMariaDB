@@ -41,6 +41,21 @@
 
 .tree-item .arrow { font-size: 9px; color: var(--text-secondary); min-width: 10px; }
 .tree-item .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.tree-item .preview-btn {
+  display: none;
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 0 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.tree-item:hover .preview-btn { display: block; }
+.tree-item .preview-btn:hover { color: var(--text-primary); }
 .tree-item .status-dot.connected    { background: #89d185; }
 .tree-item .status-dot.error        { background: #f48771; }
 .tree-item .status-dot.idle         { background: #d7ba7d; }

@@ -1,7 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import Editor from '@monaco-editor/react'
 import { useTabStore } from '../../stores/useTabStore'
 import { useConnectionStore } from '../../stores/useConnectionStore'
+import { setCompletionContext } from '../../utils/sqlCompletions'
 import ResultsGrid from '../ResultsGrid/ResultsGrid'
 import './QueryTab.css'
 
@@ -11,6 +12,13 @@ export default function QueryTab({ tabId }) {
   const editorRef = useRef(null)
 
   const tab = tabs.find(t => t.id === tabId)
+
+  useEffect(() => {
+    if (tab?.connectionId && tab?.database) {
+      setCompletionContext(tab.connectionId, tab.database)
+    }
+  }, [tab?.connectionId, tab?.database])
+
   if (!tab) return null
 
   const connection = connections.find(c => c.id === tab.connectionId)
