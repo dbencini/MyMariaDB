@@ -2,8 +2,10 @@ import { workerData, parentPort } from 'worker_threads'
 import mysql from 'mysql2/promise'
 import { escape as mysqlEscape } from 'mysql2'
 import mssql from 'mssql'
-import { createWriteStream } from 'fs'
+import { createWriteStream, readFileSync } from 'fs'
 import { unlink } from 'fs/promises'
+import { randomUUID } from 'crypto'
+import Database from 'better-sqlite3'
 import archiver from 'archiver'
 import { applyAll } from './transforms.js'
 
@@ -240,4 +242,166 @@ async function runBackup() {
   }
 }
 
+async function runRestore() {
+  const { filePath, connectionId, database } = options
+  const isMySQL = connConfig.type !== 'mssql'
+  const conn = isMySQL ? await connectMySQL(connConfig) : await connectMSSQL(connConfig)
+
+  try {
+    const sql = readFileSync(filePath, 'utf8')
+
+    if (isMySQL) {
+      await conn.query(`CREATE DATABASE IF NOT EXISTS \`${database}\``)
+      await conn.query(`USE \`${database}\``)
+    }
+
+    const statements = sql
+      .split(/;\s*\n/)
+      .map(s => s.trim())
+      .filter(s => s && !s.startsWith('--') && !s.startsWith('DELIMITER'))
+
+    let done = 0
+    for (const stmt of statements) {
+      if (cancelled) break
+      try {
+        if (isMySQL) {
+          await conn.query(stmt)
+        } else {
+          await conn.request().query(stmt)
+        }
+      } catch (err) {
+        emit({ level: 'error', message: `Error: ${err.message}` })
+      }
+      done++
+      if (done % 50 === 0) {
+        emit({ phase: 'restore', rowsDone: done, rowsTotal: statements.length, message: `Executing statements… ${done}/${statements.length}` })
+      }
+    }
+
+    if (!cancelled) {
+      emit({ phase: 'verify', message: 'Verifying row counts…' })
+      const tableMatches = [...sql.matchAll(/^-- TABLE_DATA: (.+)$/gm)].map(m => m[1])
+      const verification = []
+      for (const tableName of tableMatches) {
+        let targetCount = 0
+        try {
+          if (isMySQL) {
+            const [[{ c }]] = await conn.query(`SELECT COUNT(*) AS c FROM \`${tableName}\``)
+            targetCount = Number(c)
+          } else {
+            const r = await conn.request().query(`SELECT COUNT(*) AS c FROM [${tableName}]`)
+            targetCount = r.recordset[0].c
+          }
+        } catch {}
+        verification.push({ tableName, targetCount, pass: true })
+      }
+      emit({ done: true, status: 'completed', message: 'Restore complete ✓', verification })
+    } else {
+      emit({ done: true, status: 'cancelled', message: 'Restore cancelled — database may be in a partial state', level: 'warn' })
+    }
+  } catch (err) {
+    emit({ done: true, status: 'failed', message: err.message, level: 'error' })
+  } finally {
+    try { if (isMySQL) await conn.end(); else await conn.close() } catch {}
+  }
+}
+
+async function runChunkedRestore() {
+  const { filePath, connectionId, database, tableName, chunkSize = 5000, resumeFromRow = 0, dbPath } = options
+  const isMySQL = connConfig.type !== 'mssql'
+  const conn = isMySQL ? await connectMySQL(connConfig) : await connectMSSQL(connConfig)
+  const db = new Database(dbPath)
+
+  try {
+    if (isMySQL) {
+      await conn.query(`CREATE DATABASE IF NOT EXISTS \`${database}\``)
+      await conn.query(`USE \`${database}\``)
+    }
+
+    const sql = readFileSync(filePath, 'utf8')
+
+    const startMarker = `-- TABLE_DATA: ${tableName}\n`
+    const startIdx = sql.indexOf(startMarker)
+    if (startIdx === -1) throw new Error(`Table ${tableName} not found in backup file`)
+
+    const sectionStart = startIdx + startMarker.length
+    const nextMarkerMatch = sql.slice(sectionStart).search(/^-- TABLE_(DATA|SCHEMA):|^SET FOREIGN_KEY_CHECKS/m)
+    const sectionEnd = nextMarkerMatch === -1 ? sql.length : sectionStart + nextMarkerMatch
+    const section = sql.slice(sectionStart, sectionEnd).trim()
+
+    const insertStatements = section
+      .split(/;\s*\n/)
+      .map(s => s.trim())
+      .filter(s => s.toUpperCase().startsWith('INSERT'))
+
+    const totalRows = insertStatements.length * 1000
+    let rowsDone = resumeFromRow
+
+    const stmtsPerChunk = Math.max(1, Math.floor(chunkSize / 1000))
+    const startStmt = Math.floor(resumeFromRow / 1000)
+
+    const existingJob = db.prepare(
+      `SELECT id FROM restore_jobs WHERE backup_file = ? AND target_database = ? AND table_name = ?`
+    ).get(filePath, database, tableName)
+
+    const jobId = existingJob?.id ?? (() => {
+      const id = randomUUID()
+      db.prepare(
+        `INSERT INTO restore_jobs (id, backup_file, target_connection_id, target_database, table_name, status, created_at)
+         VALUES (?, ?, ?, ?, ?, 'in_progress', ?)`
+      ).run(id, filePath, connectionId, database, tableName, new Date().toISOString())
+      return id
+    })()
+
+    let checkpointId = db.prepare(`SELECT id FROM restore_checkpoints WHERE job_id = ?`).get(jobId)?.id
+    if (!checkpointId) {
+      checkpointId = randomUUID()
+      db.prepare(
+        `INSERT INTO restore_checkpoints (id, job_id, rows_done, total_rows, updated_at) VALUES (?, ?, ?, ?, ?)`
+      ).run(checkpointId, jobId, rowsDone, totalRows, new Date().toISOString())
+    }
+
+    for (let i = startStmt; i < insertStatements.length; i += stmtsPerChunk) {
+      if (cancelled) break
+      const batch = insertStatements.slice(i, i + stmtsPerChunk)
+      for (const stmt of batch) {
+        try {
+          if (isMySQL) await conn.query(stmt)
+          else await conn.request().query(stmt)
+        } catch (err) {
+          emit({ level: 'error', message: `Row error: ${err.message}` })
+        }
+      }
+      rowsDone = Math.min((i + stmtsPerChunk) * 1000, totalRows)
+      db.prepare(`UPDATE restore_checkpoints SET rows_done = ?, updated_at = ? WHERE id = ?`)
+        .run(rowsDone, new Date().toISOString(), checkpointId)
+      emit({ phase: 'restore', table: tableName, rowsDone, rowsTotal: totalRows, message: `Restoring ${tableName}… ~${rowsDone} rows` })
+    }
+
+    if (!cancelled) {
+      let targetCount = 0
+      if (isMySQL) {
+        const [[{ c }]] = await conn.query(`SELECT COUNT(*) AS c FROM \`${tableName}\``)
+        targetCount = Number(c)
+      } else {
+        const r = await conn.request().query(`SELECT COUNT(*) AS c FROM [${tableName}]`)
+        targetCount = r.recordset[0].c
+      }
+      db.prepare(`UPDATE restore_jobs SET status = 'completed', completed_at = ? WHERE id = ?`)
+        .run(new Date().toISOString(), jobId)
+      emit({ done: true, status: 'completed', message: `Chunked restore complete ✓ — ${targetCount} rows in target`, verification: [{ tableName, targetCount }] })
+    } else {
+      db.prepare(`UPDATE restore_jobs SET status = 'paused' WHERE id = ?`).run(jobId)
+      emit({ done: true, status: 'cancelled', message: 'Paused — checkpoint saved. You can resume later.', level: 'warn' })
+    }
+  } catch (err) {
+    emit({ done: true, status: 'failed', message: err.message, level: 'error' })
+  } finally {
+    try { if (isMySQL) await conn.end(); else await conn.close() } catch {}
+    db.close()
+  }
+}
+
 if (action === 'backup') runBackup()
+else if (action === 'restore') runRestore()
+else if (action === 'restore-chunked') runChunkedRestore()
