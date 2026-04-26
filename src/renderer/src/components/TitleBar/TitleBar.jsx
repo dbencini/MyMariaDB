@@ -16,18 +16,32 @@ export default function TitleBar() {
       userSelect: 'none'
     }}>
       <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>MyMariaDB</span>
-      <button
-        onClick={() => setShowDialog(true)}
-        style={{
-          background: 'var(--accent)',
-          color: '#fff',
-          padding: '3px 10px',
-          borderRadius: '3px',
-          fontSize: '12px'
-        }}
-      >
-        + New Connection
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button
+          onClick={() => window.open('https://paypal.me/firmfoundation', '_blank')}
+          style={{
+            background: '#0070ba',
+            color: '#fff',
+            padding: '3px 10px',
+            borderRadius: '3px',
+            fontSize: '12px'
+          }}
+        >
+          ☕ Buy me a coffee
+        </button>
+        <button
+          onClick={() => setShowDialog(true)}
+          style={{
+            background: 'var(--accent)',
+            color: '#fff',
+            padding: '3px 10px',
+            borderRadius: '3px',
+            fontSize: '12px'
+          }}
+        >
+          + New Connection
+        </button>
+      </div>
       {showDialog && <ConnectionDialog onClose={() => setShowDialog(false)} />}
     </div>
   )
