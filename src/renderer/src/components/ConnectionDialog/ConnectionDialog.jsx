@@ -13,7 +13,8 @@ export default function ConnectionDialog({ onClose, existing = null }) {
     port: 3306,
     database: '',
     username: '',
-    password: ''
+    password: '',
+    ssl: false
   })
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -91,6 +92,17 @@ export default function ConnectionDialog({ onClose, existing = null }) {
           <label>Password</label>
           <input type="password" value={form.password} onChange={set('password')} />
         </div>
+
+        {form.type !== 'mssql' && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer', marginBottom: 4 }}>
+            <input
+              type="checkbox"
+              checked={!!form.ssl}
+              onChange={e => setForm(f => ({ ...f, ssl: e.target.checked }))}
+            />
+            Use SSL (required for most external servers)
+          </label>
+        )}
 
         {error && <div className="error-msg">{error}</div>}
 

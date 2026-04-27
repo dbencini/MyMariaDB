@@ -4,7 +4,7 @@ import { getDb } from './sqlite.js'
 
 export function listConnections() {
   return getDb()
-    .prepare('SELECT id, name, type, host, port, database, username, created_at FROM connections ORDER BY name')
+    .prepare('SELECT id, name, type, host, port, database, username, ssl, created_at FROM connections ORDER BY name')
     .all()
 }
 
@@ -21,9 +21,9 @@ export function createConnection(data) {
   const id = randomUUID()
   const encPw = safeStorage.encryptString(data.password).toString('base64')
   getDb().prepare(`
-    INSERT INTO connections (id, name, type, host, port, database, username, password, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, data.name, data.type, data.host, data.port, data.database ?? null, data.username, encPw, new Date().toISOString())
+    INSERT INTO connections (id, name, type, host, port, database, username, password, ssl, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, data.name, data.type, data.host, data.port, data.database ?? null, data.username, encPw, data.ssl ? 1 : 0, new Date().toISOString())
   return id
 }
 
@@ -31,9 +31,9 @@ export function updateConnection(id, data) {
   const encPw = safeStorage.encryptString(data.password).toString('base64')
   getDb().prepare(`
     UPDATE connections
-    SET name=?, type=?, host=?, port=?, database=?, username=?, password=?
+    SET name=?, type=?, host=?, port=?, database=?, username=?, password=?, ssl=?
     WHERE id=?
-  `).run(data.name, data.type, data.host, data.port, data.database ?? null, data.username, encPw, id)
+  `).run(data.name, data.type, data.host, data.port, data.database ?? null, data.username, encPw, data.ssl ? 1 : 0, id)
 }
 
 export function deleteConnection(id) {

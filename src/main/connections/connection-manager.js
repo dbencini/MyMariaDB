@@ -14,7 +14,8 @@ export async function getActiveConnection(config) {
       user: config.username,
       password: config.password,
       database: config.database || undefined,
-      multipleStatements: false
+      multipleStatements: false,
+      ...(config.ssl ? { ssl: { rejectUnauthorized: false } } : {})
     })
     conn._type = config.type
   } else {

@@ -273,6 +273,8 @@ export default function ConnectionTree({ connection }) {
     setShowEdit(false)
     setStatus('idle')
     setError(null)
+    setDatabases(null)
+    setOpen(false)
   }
 
   return (
@@ -282,6 +284,11 @@ export default function ConnectionTree({ connection }) {
         <span className={`status-dot ${status === 'connected' ? 'connected' : status === 'error' ? 'error' : 'idle'}`} />
         <span style={{ color: 'var(--text-type)' }}>{connection.name}</span>
         <span style={{ color: 'var(--text-secondary)', fontSize: 10, marginLeft: 4 }}>({connection.type})</span>
+        <button
+          className="preview-btn"
+          title="Edit connection"
+          onClick={e => { e.stopPropagation(); setShowEdit(true) }}
+        >⚙</button>
       </div>
 
       {open && databases !== null && (
